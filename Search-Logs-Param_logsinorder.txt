@@ -1,0 +1,44 @@
+# PowerShell script to search .log files for a keyword/phrase within a date/time window
+# Set parameters below, then run in PowerShell ISE (F5)
+
+# === USER PARAMETERS ===
+$logFolder = "C:\Users\syrio\CascadeProjects\dummy-logs"   # Path to log folder (no recursion)
+$keyword   = "App.Api"                                           # Keyword or phrase to search for
+$startDate = [datetime]"2025-05-07 09:00"                      # Start date/time (yyyy-MM-dd HH:mm)
+$endDate   = [datetime]"2025-05-07 19:00"                      # End date/time (yyyy-MM-dd HH:mm)
+# =======================
+
+# --- Validation ---
+if (-not (Test-Path $logFolder)) {
+    Write-Host "The specified folder does not exist. Exiting." -ForegroundColor Red
+    exit 1
+}
+if ([string]::IsNullOrWhiteSpace($keyword)) {
+    Write-Host "No keyword provided. Exiting." -ForegroundColor Red
+    exit 1
+}
+if ($endDate -lt $startDate) {
+    Write-Host "End date/time must be after start date/time. Exiting." -ForegroundColor Red
+    exit 1
+}
+
+# --- Main Logic ---
+$logFiles = Get-ChildItem -Path $logFolder -Filter "*.log" | Where-Object {
+    $_.LastWriteTime -ge $startDate -and $_.LastWriteTime -le $endDate
+} | Sort-Object LastWriteTime
+
+if ($logFiles.Count -eq 0) {
+    Write-Host "No .log files found in the specified date/time window." -ForegroundColor Yellow
+    exit 0
+}
+
+Write-Host "Searching $($logFiles.Count) log file(s) for '$keyword'..." -ForegroundColor Cyan
+
+foreach ($file in $logFiles) {
+    $matches = Select-String -Path $file.FullName -Pattern $keyword
+    foreach ($match in $matches) {
+        Write-Host ("[{0}] Line {1}: {2}" -f $file.Name, $match.LineNumber, $match.Line)
+    }
+}
+
+Write-Host "Search complete." -ForegroundColor Green
